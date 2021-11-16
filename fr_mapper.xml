@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE MudletPackage>
+<MudletPackage version="1.001">
+	<TriggerPackage />
+	<TimerPackage />
+	<AliasPackage />
+	<ActionPackage />
+	<ScriptPackage>
+		<ScriptGroup isActive="yes" isFolder="yes">
+			<name>FR_Mapper</name>
+			<packageName></packageName>
+			<script></script>
+			<eventHandlerList />
+			<Script isActive="yes" isFolder="no">
+				<name>MainMapperScript</name>
+				<packageName></packageName>
+				<script>Mapper = Mapper or {}
+
+-- Need:
+-- * Alias to capture #MAP/WALK commands
+-- * Macros to capture "shift" commands
+-- * Event handler to capture gmcp room
+-- Support:
+-- * version
+-- * about
+-- * help
+-- * autoupdate</script>
+				<eventHandlerList />
+			</Script>
+		</ScriptGroup>
+	</ScriptPackage>
+	<KeyPackage />
+	<HelpPackage>
+		<helpURL></helpURL>
+	</HelpPackage>
+</MudletPackage>
