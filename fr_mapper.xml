@@ -12,7 +12,7 @@ local args = matches[3]
 Mapper:handleCommand(cmd,args)</script>
 			<command></command>
 			<packageName></packageName>
-			<regex>#(?i)(\bmap\b|\bhelp\b)(?-i)\s*(.*)$</regex>
+			<regex>#(?i)(\bmap\b|\bversion\b|\bhelp\b)(?-i)\s*(.*)$</regex>
 		</Alias>
 	</AliasPackage>
 	<ActionPackage />
@@ -26,11 +26,15 @@ Mapper:handleCommand(cmd,args)</script>
 				<name>MainMapperScript</name>
 				<packageName></packageName>
 				<script>Mapper = Mapper or {}
-Mapper.version = "0.0.1"
+Mapper.Version = "0.0.0"
 Mapper.debug = Mapper.debug or false
-Mapper.options = Mapper.options or {}
+Mapper.Options = Mapper.Options or {}
 Mapper.handlers = Mapper.handlers or {}
 Mapper.handlerIdxs = Mapper.handlerIdxs or {}
+local url_versionDownload = "https://github.com/takilara/fr_mapper/releases/latest/download/version.lua"
+local url_latestVersion = "https://github.com/takilara/fr_mapper/releases/latest/download/"
+Mapper.PackageName = "FR Mapper"
+Mapper.downloadPath = getMudletHomeDir().."/mapper_downloads/"
 
 
 
@@ -49,6 +53,79 @@ function Mapper:log(text)
     debugc("Mapper:"..text)
   end
 end
+
+function Mapper:handleCommand(cmd,args)
+  cmd = string.lower(cmd)
+  
+  local cmdA = string.split(args," ")
+  local sub_cmd = string.lower(table.remove(cmdA,1))
+  local sub_args = table.concat(cmdA," ")
+  
+  if (cmd=="help") then         -- Hook to global #HELP
+    Mapper:showHelp()
+  elseif (cmd=="version") then  -- Hook to global #VERSION
+    Mapper:showVersion()
+  elseif (cmd=="about") then    -- Hook to global #ABOUT
+    Mapper:showAbout()
+  -- Package specific below
+  elseif (cmd=="map") then
+    if sub_cmd=="" then
+      Mapper:showHelp()
+      Mapper:showStatus()
+    elseif sub_cmd=="enable" then
+      Mapper.Enabled = true
+      cecho("&lt;green&gt;"..Mapper.PackageName.." ENABLED\n")
+      --Telegram:showStatus()
+    elseif sub_cmd=="disable" then
+      Mapper.Enabled = false
+      cecho("&lt;orange&gt;"..Mapper.PackageName.." DISABLED\n")
+      --Telegram:showStatus()
+    elseif sub_cmd=="version" then
+      Mapper:showVersion()
+    elseif sub_cmd=="help" then
+      Mapper:showHelp()
+    elseif sub_cmd=="about" then
+      Mapper:showAbout()
+    elseif sub_cmd=="status" then
+      Mapper:showStatus()
+    elseif sub_cmd=="upgrade" then
+      Mapper:downloadLatestVersion()
+    end 
+    --local subcmd =
+  end 
+end
+
+
+
+function Mapper:showHelp()
+  cecho("&lt;cyan&gt;".. Mapper.PackageName ..":\n")
+  cecho(string.format("&lt;cyan&gt;%-30s- %s\n",string.format(" %s","#HELP"),"Show Helpfile(s)"))
+  cecho(string.format("&lt;cyan&gt;%-30s- %s\n",string.format(" %s","#VERSION"),"Show version(s)"))
+  cecho(string.format("&lt;cyan&gt;%-30s- %s\n",string.format(" %s","#MAP STATUS"),"Show Telegram Status"))
+  cecho(string.format("&lt;cyan&gt;%-30s- %s\n",string.format(" %s","#MAP UPGRADE"),"Upgrade the package"))
+  cecho(string.format("&lt;cyan&gt;%-30s- %s\n",string.format(" %s","#MAP ENABLE/DISABLE"),"Enable or Disable the package"))
+  cecho("&lt;cyan&gt;---------------------------------------------------------------------------------------\n")
+  print()
+end
+
+function Mapper:showVersion()
+  local vline = Mapper:checkVersion()
+  cecho(string.format("&lt;cyan&gt;%-50s: %s %s\n",Mapper.PackageName,Mapper.Version,vline))
+end
+
+function Mapper:showAbout()
+  print("Show about")
+end
+
+function Mapper:showStatus()
+  print("Show about")
+end
+
+function Mapper:checkVersion()
+  return ""
+end
+  
+
 
 </script>
 				<eventHandlerList />
