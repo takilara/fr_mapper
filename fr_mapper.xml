@@ -3,7 +3,18 @@
 <MudletPackage version="1.001">
 	<TriggerPackage />
 	<TimerPackage />
-	<AliasPackage />
+	<AliasPackage>
+		<Alias isActive="yes" isFolder="no">
+			<name>Capture legal commands</name>
+			<script>local cmd = matches[2]
+local args = matches[3]
+
+Mapper:handleCommand(cmd,args)</script>
+			<command></command>
+			<packageName></packageName>
+			<regex>#(?i)(\bmap\b|\bhelp\b)(?-i)\s*(.*)$</regex>
+		</Alias>
+	</AliasPackage>
 	<ActionPackage />
 	<ScriptPackage>
 		<ScriptGroup isActive="yes" isFolder="yes">
@@ -15,6 +26,13 @@
 				<name>MainMapperScript</name>
 				<packageName></packageName>
 				<script>Mapper = Mapper or {}
+Mapper.version = "0.0.1"
+Mapper.debug = Mapper.debug or false
+Mapper.options = Mapper.options or {}
+Mapper.handlers = Mapper.handlers or {}
+Mapper.handlerIdxs = Mapper.handlerIdxs or {}
+
+
 
 -- Need:
 -- * Alias to capture #MAP/WALK commands
@@ -24,7 +42,15 @@
 -- * version
 -- * about
 -- * help
--- * autoupdate</script>
+-- * autoupdate
+
+function Mapper:log(text)
+  if Mapper.debug==true then
+    debugc("Mapper:"..text)
+  end
+end
+
+</script>
 				<eventHandlerList />
 			</Script>
 		</ScriptGroup>
