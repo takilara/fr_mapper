@@ -25,12 +25,18 @@ Mapper:handleCommand(cmd,args)</script>
 			<Script isActive="yes" isFolder="no">
 				<name>MainMapperScript</name>
 				<packageName></packageName>
-				<script>Mapper = Mapper or {}
+				<script>-- override default mapper script
+mudlet = mudlet or {}; mudlet.mapper_script = true
+
+
+Mapper = Mapper or {}
 Mapper.Version = "0.0.0"
 Mapper.debug = Mapper.debug or false
 Mapper.Options = Mapper.Options or {}
 Mapper.EventHandlerIds  = Mapper.EventHandlerIds  or {}
 Mapper.AliasHandlerIds  = Mapper.AliasHandlerIds  or {}
+Mapper.CurrentZone = Mapper.CurrentZone or ""
+Mapper.PreviousRoomId = Mapper.PreviousRoomId or nil
 
 local url_versionDownload = "https://github.com/takilara/fr_mapper/releases/latest/download/version.lua"
 local url_latestVersion = "https://github.com/takilara/fr_mapper/releases/latest/download/"
@@ -125,6 +131,139 @@ end
 function Mapper:checkVersion()
   return ""
 end
+
+function Mapper:reverseExit(e)
+  local r = nil
+  if e~=nil then
+    e = string.lower(e)
+    
+    if e=="e" or e=="east" then
+      r = "west"
+    elseif e=="w" or e=="west" then
+      r = "east"
+    elseif e=="n" or e=="north" then
+      r = "south"
+    elseif e=="s" or e=="south" then
+      r = "north"
+    elseif e=="u" or e=="up" then
+      r = "down"
+    elseif e=="d" or e=="down" then
+      r = "up"
+    elseif e=="nw" or e=="northwest" then
+      r = "southeast"
+    elseif e=="ne" or e=="northeast" then
+      r = "southwest"
+    elseif e=="sw" or e=="southwest" then
+      r = "northeast"
+    elseif e=="se" or e=="southeast" then
+      r = "northwest"
+    end
+  else
+    return e
+  end
+  return r
+end
+
+function Mapper:getCoordinateOffset(exitdir)
+  --print("get the coordinate offset for " .. exitdir)
+  local dx = 0
+  local dy = 0
+  local dz = 0
+  local c = 2
+  if exitdir then
+    exitdir = string.lower(exitdir)
+    if exitdir=="n" or exitdir=="north" then
+      dy = c
+    elseif exitdir=="s" or exitdir=="south" then
+      dy = -c
+    elseif exitdir=="w" or exitdir=="west" then
+      dx = -c
+    elseif exitdir=="e" or exitdir=="east" then
+      dx = c
+    elseif exitdir=="u" or exitdir=="up" then
+      dz = c
+    elseif exitdir=="d" or exitdir=="down" then
+      dz = -c
+    elseif exitdir=="nw" or exitdir=="northwest" then
+      dx = -c
+      dy = c
+    elseif exitdir=="ne" or exitdir=="northeast" then
+      dx = c
+      dy = c
+    elseif exitdir=="sw" or exitdir=="southwest" then
+      dx = -c
+      dy = -c
+    elseif exitdir=="se" or exitdir=="southeast" then
+      dx = c
+      dy = -c
+    else
+      dx = 1
+      dy = 1
+      print("NON STANDARD EXIT!")
+    end
+  end
+  return dx,dy,dz
+end
+
+function Mapper:setExitsFromGmcp(id)
+-- are there exits here?
+    --print("Check for exits")
+    local ctab = {}
+    local n = 1
+    local stubs = {}
+    for exitDir,targetRoomId in pairs(gmcp.Room.Info.exits) do
+      ctab[n]=exitDir
+      n = n + 1
+      
+      if Mapper.LegalExits[exitDir] then
+        print("Try to add exit " .. exitDir)
+        if setExit(id,targetRoomId,exitDir) then
+          print("added exit")
+          -- check if targetRoom have a reverse stub in opposite direction
+          local tStub = getRoomUserData(targetRoomId,"" .. id)
+          if tStub~=nil and tStub~="" then
+            print("Try to set reverse exit")
+            --print("dir: " .. tStub)
+            if setExit(targetRoomId,id,tStub) then
+            end
+          end
+        else
+          setExitStub(id,exitDir,true)
+          --print("added stub")
+        end
+        
+      else
+        --print("CREATE SPECIAL EXIT " .. exitDir)  
+        addSpecialExit(id,targetRoomId,exitDir)
+      end
+      -- TODO add exit to userdata
+      setRoomUserData(id,"" .. targetRoomId,exitDir)
+      --print("Setting USerData")
+      --local test = getRoomUserData(id,"" .. targetRoomId)
+      --print(test)
+    end
+    
+    local allExitString = table.concat(ctab)
+    -- are there special exits here?
+end
+
+function Mapper:getExitTowardRoomFrom(targetRoom,sourceRoom)
+  local found = nil
+  if getRoomExits(sourceRoom) then
+    for exitdir,id in pairs(getRoomExits(sourceRoom)) do
+      --print(exitdir)
+      --print(id)
+      if id==targetRoom then
+        --print(sourceRoom .. " -&gt; " .. targetRoom .. ": " .. exitdir)
+        found = exitdir
+      end
+    end
+  end
+  if not found then
+    --print("Check stubs")
+  end
+  return found
+end
   
 function Mapper:killAllExistingEventHandlers()
   -- kill all dynamic handlers
@@ -149,6 +288,64 @@ end
 
 function Mapper:onGmcp(event)
   Mapper:log("onGmcp")
+  print("onGmcp")
+  
+  local packet = gmcp.Room
+  local sailing =false
+  
+  local roomObj = gmcp.Room.Info
+  
+  if packet.Info.is_ship==1 then
+    cecho("&lt;cyan&gt;Sailing!!\n")
+    sailing = true
+    roomObj = gmcp.Room.Info.core
+    cecho("&lt;cyan&gt;Overriding RoomObj!!\n")
+  end
+  
+  local roomId = roomObj.num
+  local roomName = roomObj.name
+  local roomDesc = roomObj.desc
+  --local roomExits = roomObj.exits
+  if roomId ~= -1 then
+  -- broadcast my room
+    if roomExists(roomId) then
+      -- We know the room. Go to it
+      echo("Old Room")
+      Mapper.PreviousRoomId = roomId
+      Mapper.CurrentZone = getRoomAreaName(getRoomArea(roomId))
+    else
+      echo("New Room")
+      -- determine if we need to use our own previousRoom, or if we can use the one from gmcp
+      if sailing or string.starts(packet.Info.name:lower(),"somewhere in the sword sea") then
+        --print("Sailing, so using m.prevRoomId: " .. m.PrevRoomId .." as prevroom")
+        cecho("&lt;orange&gt;:WARN:Using prev...")
+      else
+        --print("Not sailing, so using roomObj.prev_num: " .. roomObj.prev_num .." as prevroom")
+        cecho("&lt;orange&gt;:WARN:Using gmcp...")
+        Mapper.PreviousRoomId=roomObj.prev_num
+      end
+      
+      if Mapper.CurrentZone == "" then
+        cecho("&lt;orange&gt;No zone set, will place in UNKNOWN zone\n")
+        Mapper.CurrentZone = "UNKNOWN"
+      end
+      addRoom(roomId)
+      setRoomArea(roomId,Mapper.CurrentZone)
+      setRoomName(roomId,roomName)
+      setRoomUserData(roomId,"desc",roomObj.desc)
+      
+      -- fix exits
+      Mapper:setExitsFromGmcp(roomId)
+      
+      -- figure out the coordinates of this room based on coords of prev room and the exit used to get here
+    end
+    
+    
+  
+  
+  end
+  centerview(roomId)
+  
 end
 
 
@@ -161,6 +358,43 @@ Mapper:killAllExistingEventHandlers()
 -- setup dynamic eventHandlers
 table.insert(Mapper.EventHandlerIds,registerAnonymousEventHandler("gmcp.Room", [[Mapper:onGmcp]]))
 </script>
+				<eventHandlerList />
+			</Script>
+			<Script isActive="yes" isFolder="no">
+				<name>Exit Abbreviations</name>
+				<packageName></packageName>
+				<script>Mapper = Mapper or {}
+Mapper.ExitAbbreviations = Mapper.ExitAbbreviations or {}
+
+Mapper.ExitAbbreviations["s"] = "south"
+Mapper.ExitAbbreviations["n"] = "north"
+Mapper.ExitAbbreviations["e"] = "east"
+Mapper.ExitAbbreviations["w"] = "west"
+Mapper.ExitAbbreviations["nw"] = "northwest"
+Mapper.ExitAbbreviations["ne"] = "northeast"
+Mapper.ExitAbbreviations["sw"] = "southwest"
+Mapper.ExitAbbreviations["se"] = "southeast"
+Mapper.ExitAbbreviations["u"] = "up"
+Mapper.ExitAbbreviations["d"] = "down"</script>
+				<eventHandlerList />
+			</Script>
+			<Script isActive="yes" isFolder="no">
+				<name>Legal Exits</name>
+				<packageName></packageName>
+				<script>Mapper = Mapper or {}
+Mapper.LegalExits = Mapper.LegalExits or {}
+Mapper.LegalExits["n"]=true
+Mapper.LegalExits["s"]=true
+Mapper.LegalExits["e"]=true
+Mapper.LegalExits["w"]=true
+Mapper.LegalExits["u"]=true
+Mapper.LegalExits["d"]=true
+Mapper.LegalExits["in"]=true
+Mapper.LegalExits["out"]=true
+Mapper.LegalExits["ne"]=true
+Mapper.LegalExits["nw"]=true
+Mapper.LegalExits["se"]=true
+Mapper.LegalExits["sw"]=true</script>
 				<eventHandlerList />
 			</Script>
 		</ScriptGroup>
