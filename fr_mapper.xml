@@ -29,8 +29,9 @@ Mapper:handleCommand(cmd,args)</script>
 Mapper.Version = "0.0.0"
 Mapper.debug = Mapper.debug or false
 Mapper.Options = Mapper.Options or {}
-Mapper.handlers = Mapper.handlers or {}
-Mapper.handlerIdxs = Mapper.handlerIdxs or {}
+Mapper.EventHandlerIds  = Mapper.EventHandlerIds  or {}
+Mapper.AliasHandlerIds  = Mapper.AliasHandlerIds  or {}
+
 local url_versionDownload = "https://github.com/takilara/fr_mapper/releases/latest/download/version.lua"
 local url_latestVersion = "https://github.com/takilara/fr_mapper/releases/latest/download/"
 Mapper.PackageName = "FR Mapper"
@@ -125,8 +126,40 @@ function Mapper:checkVersion()
   return ""
 end
   
+function Mapper:killAllExistingEventHandlers()
+  -- kill all dynamic handlers
+  -- ... events
+  for i,handlerId in pairs(Mapper.EventHandlerIds) do
+    if tonumber(handlerId) then
+      killAnonymousEventHandler(handlerId)
+      Mapper.EventHandlerIds[i]= nil
+    end
+  end
+  
+  -- ... Aliases
+  for i,handlerId in pairs(Mapper.AliasHandlerIds) do
+    --print("Should remove alias "..handlerId)
+    if tonumber(handlerId) then
+      killAlias(handlerId)
+      Mapper.AliasHandlerIds[i]= nil
+    end
+  end
+  
+end
+
+function Mapper:onGmcp(event)
+  Mapper:log("onGmcp")
+end
 
 
+-- =========================================
+--                   INIT
+-- =========================================
+
+Mapper:killAllExistingEventHandlers()
+
+-- setup dynamic eventHandlers
+table.insert(Mapper.EventHandlerIds,registerAnonymousEventHandler("gmcp.Room", [[Mapper:onGmcp]]))
 </script>
 				<eventHandlerList />
 			</Script>
